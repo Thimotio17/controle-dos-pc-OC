@@ -49,14 +49,16 @@ const Index = () => {
       <header className="flex items-center justify-between px-6 py-3 glass-panel border-b border-border/30 z-40 relative shrink-0">
         <div className="flex items-center gap-3">
           <Monitor className="text-primary" size={24} />
-          <h1 className="text-lg font-bold text-foreground tracking-tight">Office PC Manager</h1>
+          <h1 className="text-lg font-bold text-foreground tracking-tight">
+            ODONTO PC
+          </h1>
         </div>
 
         {/* Search */}
         <div className="relative w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
           <Input
-            placeholder="Search PC number..."
+            placeholder="numero do pc..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 bg-secondary/50 border-border/30 text-sm"
@@ -70,7 +72,7 @@ const Index = () => {
               }}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-primary hover:underline"
             >
-              Go to PC {String(searchResult.id).padStart(2, "0")}
+              Ir para PC {String(searchResult.id).padStart(2, "0")}
             </button>
           )}
         </div>
@@ -85,7 +87,7 @@ const Index = () => {
           >
             <Building2 size={14} />
             <ChevronDown size={12} />
-            Floor 1
+            Piso inferior
             <span className="ml-1 text-[10px] opacity-70">({totalFloor1})</span>
           </Button>
           <Button
@@ -96,7 +98,7 @@ const Index = () => {
           >
             <Building2 size={14} />
             <ChevronUp size={12} />
-            Floor 2
+            Piso superior
             <span className="ml-1 text-[10px] opacity-70">({totalFloor2})</span>
           </Button>
         </div>
@@ -127,9 +129,15 @@ const Index = () => {
 
       {/* Legend */}
       <footer className="flex items-center justify-center gap-6 py-2 text-[10px] text-muted-foreground border-t border-border/20 shrink-0">
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-perf-high" /> High Performance</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-perf-mid" /> Medium</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-perf-low" /> Low</span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-perf-high" /> Esse tá TOP
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-perf-mid" /> Meia boca
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-perf-low" /> Porqueira
+        </span>
       </footer>
     </div>
   );

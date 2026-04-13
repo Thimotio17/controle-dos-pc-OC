@@ -53,7 +53,7 @@ const PCDetailPanel = ({ pc, onClose, onSave }: PCDetailPanelProps) => {
         <Gauge className={scoreColor} size={28} />
         <div>
           <div className={`text-2xl font-bold ${scoreColor}`}>{score}/10</div>
-          <div className="text-xs text-muted-foreground">Performance Score</div>
+          <div className="text-xs text-muted-foreground">Nível da máquina</div>
         </div>
         <div className="ml-auto">
           <div className="w-20 h-2 rounded-full bg-secondary overflow-hidden">
@@ -65,31 +65,47 @@ const PCDetailPanel = ({ pc, onClose, onSave }: PCDetailPanelProps) => {
       {/* Fields */}
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground flex items-center gap-2"><CircuitBoard size={14} /> Motherboard</Label>
+          <Label className="text-xs text-muted-foreground flex items-center gap-2">
+            <CircuitBoard size={14} /> Placa mãe
+          </Label>
           <Input value={editing.motherboard} onChange={(e) => setEditing({ ...editing, motherboard: e.target.value })} className="bg-secondary/50 border-border/50" />
         </div>
+
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground flex items-center gap-2"><Cpu size={14} /> CPU</Label>
+          <Label className="text-xs text-muted-foreground flex items-center gap-2">
+            <Cpu size={14} /> CPU
+          </Label>
           <Input value={editing.cpu} onChange={(e) => setEditing({ ...editing, cpu: e.target.value })} className="bg-secondary/50 border-border/50" />
         </div>
+
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground flex items-center gap-2"><MemoryStick size={14} /> RAM (GB)</Label>
+          <Label className="text-xs text-muted-foreground flex items-center gap-2">
+            <MemoryStick size={14} /> RAM (GB)
+          </Label>
           <Input type="number" value={editing.ram} onChange={(e) => setEditing({ ...editing, ram: Number(e.target.value) })} className="bg-secondary/50 border-border/50" />
         </div>
+
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground flex items-center gap-2"><User size={14} /> Updated By</Label>
+          <Label className="text-xs text-muted-foreground flex items-center gap-2">
+            <User size={14} /> Atualizado por
+          </Label>
           <Input value={editing.updatedBy} onChange={(e) => setEditing({ ...editing, updatedBy: e.target.value })} className="bg-secondary/50 border-border/50" />
         </div>
+
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground flex items-center gap-2"><Calendar size={14} /> Last Updated</Label>
-          <div className="text-sm text-foreground bg-secondary/50 border border-border/50 rounded-md px-3 py-2">{editing.lastUpdated}</div>
+          <Label className="text-xs text-muted-foreground flex items-center gap-2">
+            <Calendar size={14} /> Última atualização
+          </Label>
+          <div className="text-sm text-foreground bg-secondary/50 border border-border/50 rounded-md px-3 py-2">
+            {editing.lastUpdated}
+          </div>
         </div>
       </div>
 
       {/* Save */}
       <div className="p-6 border-t border-border/50">
         <Button onClick={handleSave} className="w-full gap-2 bg-primary hover:bg-primary/80 text-primary-foreground">
-          <Save size={16} /> Save Changes
+          <Save size={16} /> Salvar alterações
         </Button>
       </div>
     </div>
