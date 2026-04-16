@@ -1,17 +1,26 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { PC, initialPCs } from "@/data/pcData";
 import FloorMap from "@/components/FloorMap";
 import PCDetailPanel from "@/components/PCDetailPanel";
-import { Search, Building2, ChevronUp, ChevronDown, Monitor } from "lucide-react";
+import { Search, Building2, ChevronUp, ChevronDown, Monitor, ClipboardList } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const Index = () => {
+// 1. Definimos que a Index agora recebe o usuário
+interface IndexProps {
+  usuario?: string;
+}
+
+// AQUI ESTAVA O ERRO: tirei o } que fechava a função antes da hora
+const Index = ({ usuario }: IndexProps) => {
   const [pcs, setPcs] = useState<PC[]>(initialPCs);
   const [floor, setFloor] = useState<1 | 2>(1);
   const [selectedPc, setSelectedPc] = useState<PC | null>(null);
   const [search, setSearch] = useState("");
   const [transitioning, setTransitioning] = useState(false);
+
+  // 2. Novo estado para a lista de logs (histórico)
+  const [logs, setLogs] = useState<{ id: number; msg: string; hora: string }[]>([]);
 
   const switchFloor = (f: 1 | 2) => {
     if (f === floor) return;
@@ -27,9 +36,23 @@ const Index = () => {
     setSelectedPc(pc);
   };
 
+  // 3. Função para registrar o log
+  const registrarAcao = (acao: string) => {
+    const novoLog = {
+      id: Date.now(),
+      msg: `${usuario || 'Sistema'}: ${acao}`,
+      hora: new Date().toLocaleTimeString(),
+    };
+    setLogs((prev) => [novoLog, ...prev]);
+    console.log("Log registrado:", novoLog);
+  };
+
   const handleSave = (updated: PC) => {
     setPcs((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     setSelectedPc(updated);
+    
+    // 4. Registra que o usuário alterou as configurações
+    registrarAcao(`Alterou configurações do PC ${String(updated.id).padStart(2, "0")}`);
   };
 
   const searchResult = search.trim()
@@ -49,9 +72,12 @@ const Index = () => {
       <header className="flex items-center justify-between px-6 py-3 glass-panel border-b border-border/30 z-40 relative shrink-0">
         <div className="flex items-center gap-3">
           <Monitor className="text-primary" size={24} />
-          <h1 className="text-lg font-bold text-foreground tracking-tight">
-            ODONTO PC
-          </h1>
+          <div>
+            <h1 className="text-lg font-bold text-foreground tracking-tight leading-none">
+              ODONTO PC
+            </h1>
+            <span className="text-[10px] text-primary">Operador: {usuario || 'Desconhecido'}</span>
+          </div>
         </div>
 
         {/* Search */}
@@ -86,7 +112,6 @@ const Index = () => {
             className="gap-1.5 text-xs"
           >
             <Building2 size={14} />
-            <ChevronDown size={12} />
             Piso inferior
             <span className="ml-1 text-[10px] opacity-70">({totalFloor1})</span>
           </Button>
@@ -97,7 +122,6 @@ const Index = () => {
             className="gap-1.5 text-xs"
           >
             <Building2 size={14} />
-            <ChevronUp size={12} />
             Piso superior
             <span className="ml-1 text-[10px] opacity-70">({totalFloor2})</span>
           </Button>
@@ -105,9 +129,9 @@ const Index = () => {
       </header>
 
       {/* Map area */}
-      <main className="flex-1 relative min-h-0">
+      <main className="flex-1 relative min-h-0 flex">
         <div
-          className={`absolute inset-0 ${transitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}
+          className={`flex-1 relative ${transitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}
           style={{ transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)" }}
         >
           <FloorMap
@@ -118,9 +142,26 @@ const Index = () => {
           />
         </div>
 
+        {/* 5. Painel lateral de LOGS para ver as alterações em tempo real */}
+        <aside className="w-64 border-l border-border/20 bg-black/20 p-4 overflow-y-auto hidden lg:block">
+          <div className="flex items-center gap-2 mb-4 text-muted-foreground border-b border-border/10 pb-2">
+            <ClipboardList size={16} />
+            <span className="text-xs font-semibold uppercase tracking-wider">Histórico</span>
+          </div>
+          <div className="space-y-3">
+            {logs.length === 0 && <p className="text-[10px] text-muted-foreground italic">Nenhuma alteração recente</p>}
+            {logs.map((log) => (
+              <div key={log.id} className="text-[10px] leading-tight bg-secondary/30 p-2 rounded border border-white/5">
+                <span className="text-primary block font-mono mb-1">{log.hora}</span>
+                <p className="text-gray-300">{log.msg}</p>
+              </div>
+            ))}
+          </div>
+        </aside>
+
         {/* Overlay click to close */}
         {selectedPc && (
-          <div className="absolute inset-0 z-40" onClick={() => setSelectedPc(null)} />
+          <div className="absolute inset-0 z-40 bg-black/10 backdrop-blur-[1px]" onClick={() => setSelectedPc(null)} />
         )}
 
         {/* Detail panel */}
