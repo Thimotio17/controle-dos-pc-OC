@@ -1,17 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { PC, initialPCs } from "@/data/pcData";
 import FloorMap from "@/components/FloorMap";
 import PCDetailPanel from "@/components/PCDetailPanel";
-import { Search, Building2, ChevronUp, ChevronDown, Monitor, ClipboardList } from "lucide-react";
+import { Search, Building2, Monitor, ClipboardList } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-// 1. Definimos que a Index agora recebe o usuário
 interface IndexProps {
   usuario?: string;
 }
 
-// AQUI ESTAVA O ERRO: tirei o } que fechava a função antes da hora
 const Index = ({ usuario }: IndexProps) => {
   const [pcs, setPcs] = useState<PC[]>(initialPCs);
   const [floor, setFloor] = useState<1 | 2>(1);
@@ -19,8 +18,52 @@ const Index = ({ usuario }: IndexProps) => {
   const [search, setSearch] = useState("");
   const [transitioning, setTransitioning] = useState(false);
 
-  // 2. Novo estado para a lista de logs (histórico)
-  const [logs, setLogs] = useState<{ id: number; msg: string; hora: string }[]>([]);
+  // --- LOGICA DO SUPABASE ---
+  const [logs, setLogs] = useState<any[]>([]);
+
+  // Função para buscar os logs do banco de dados
+  const buscarLogsDoBanco = async () => {
+    const { data, error } = await supabase
+      .from('logs_atividades')
+      .select('*')
+      .order('criado_em', { ascending: false })
+      .limit(15);
+
+    if (!error && data) {
+      setLogs(data);
+    }
+  };
+
+  // Efeito para carregar o histórico e ativar o Tempo Real
+  useEffect(() => {
+    buscarLogsDoBanco();
+
+    // Isso faz a tela atualizar sozinha se outra pessoa mexer!
+    const canal = supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'logs_atividades' }, 
+        () => buscarLogsDoBanco()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, []);
+
+  // Função para salvar uma nova ação no banco
+  const registrarAcaoNoBanco = async (acao: string, pcId: string = 'N/A') => {
+    await supabase.from('logs_atividades').insert([
+      { 
+        operador: usuario || 'Sistema', 
+        acao: acao, 
+        computador: pcId 
+      }
+    ]);
+    // Não precisa dar setLogs aqui, o 'Realtime' acima vai detectar o insert e atualizar a lista!
+  };
+  // ---------------------------
 
   const switchFloor = (f: 1 | 2) => {
     if (f === floor) return;
@@ -36,23 +79,15 @@ const Index = ({ usuario }: IndexProps) => {
     setSelectedPc(pc);
   };
 
-  // 3. Função para registrar o log
-  const registrarAcao = (acao: string) => {
-    const novoLog = {
-      id: Date.now(),
-      msg: `${usuario || 'Sistema'}: ${acao}`,
-      hora: new Date().toLocaleTimeString(),
-    };
-    setLogs((prev) => [novoLog, ...prev]);
-    console.log("Log registrado:", novoLog);
-  };
-
-  const handleSave = (updated: PC) => {
+  const handleSave = async (updated: PC) => {
     setPcs((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     setSelectedPc(updated);
     
-    // 4. Registra que o usuário alterou as configurações
-    registrarAcao(`Alterou configurações do PC ${String(updated.id).padStart(2, "0")}`);
+    // Agora registra no BANCO DE DADOS
+    await registrarAcaoNoBanco(
+      `Alterou configurações`, 
+      `PC ${String(updated.id).padStart(2, "0")}`
+    );
   };
 
   const searchResult = search.trim()
@@ -142,33 +177,33 @@ const Index = ({ usuario }: IndexProps) => {
           />
         </div>
 
-        {/* 5. Painel lateral de LOGS para ver as alterações em tempo real */}
+        {/* HISTÓRICO VINDO DO SUPABASE */}
         <aside className="w-64 border-l border-border/20 bg-black/20 p-4 overflow-y-auto hidden lg:block">
           <div className="flex items-center gap-2 mb-4 text-muted-foreground border-b border-border/10 pb-2">
             <ClipboardList size={16} />
-            <span className="text-xs font-semibold uppercase tracking-wider">Histórico</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Histórico Real</span>
           </div>
           <div className="space-y-3">
-            {logs.length === 0 && <p className="text-[10px] text-muted-foreground italic">Nenhuma alteração recente</p>}
+            {logs.length === 0 && <p className="text-[10px] text-muted-foreground italic">Carregando...</p>}
             {logs.map((log) => (
               <div key={log.id} className="text-[10px] leading-tight bg-secondary/30 p-2 rounded border border-white/5">
-                <span className="text-primary block font-mono mb-1">{log.hora}</span>
-                <p className="text-gray-300">{log.msg}</p>
+                <span className="text-primary block font-mono mb-1">
+                  {new Date(log.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <p className="text-gray-300 font-bold">{log.operador}</p>
+                <p className="text-gray-400">{log.acao} <span className="text-red-400">{log.computador !== 'N/A' ? log.computador : ''}</span></p>
               </div>
             ))}
           </div>
         </aside>
 
-        {/* Overlay click to close */}
         {selectedPc && (
           <div className="absolute inset-0 z-40 bg-black/10 backdrop-blur-[1px]" onClick={() => setSelectedPc(null)} />
         )}
 
-        {/* Detail panel */}
         <PCDetailPanel pc={selectedPc} onClose={() => setSelectedPc(null)} onSave={handleSave} />
       </main>
 
-      {/* Legend */}
       <footer className="flex items-center justify-center gap-6 py-2 text-[10px] text-muted-foreground border-t border-border/20 shrink-0">
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-perf-high" /> Esse tá TOP
