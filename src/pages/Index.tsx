@@ -1,50 +1,63 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { PC, initialPCs } from "@/data/pcData";
+import { PC } from "@/data/pcData";
 import FloorMap from "@/components/FloorMap";
 import PCDetailPanel from "@/components/PCDetailPanel";
 import { Search, Building2, Monitor, ClipboardList } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface IndexProps {
-  usuario?: string;
+  usuario?: string | null;
 }
 
 const Index = ({ usuario }: IndexProps) => {
-  const [pcs, setPcs] = useState<PC[]>(initialPCs);
+  // 1. ESTADOS ÚNICOS
+  const [pcs, setPcs] = useState<PC[]>([]);
   const [floor, setFloor] = useState<1 | 2>(1);
   const [selectedPc, setSelectedPc] = useState<PC | null>(null);
   const [search, setSearch] = useState("");
   const [transitioning, setTransitioning] = useState(false);
-
-  // --- LOGICA DO SUPABASE ---
   const [logs, setLogs] = useState<any[]>([]);
 
-  // Função para buscar os logs do banco de dados
-  const buscarLogsDoBanco = async () => {
-    const { data, error } = await supabase
+  const buscarDadosIniciais = async () => {
+    const { data: dataLogs } = await supabase
       .from('logs_atividades')
       .select('*')
       .order('criado_em', { ascending: false })
       .limit(15);
+    if (dataLogs) setLogs(dataLogs);
 
-    if (!error && data) {
-      setLogs(data);
-    }
+    const { data: dataPcs } = await supabase
+      .from('computadores')
+      .select('*')
+      .order('id', { ascending: true });
+    
+    if (dataPcs) {
+  const pcsFormatados: PC[] = dataPcs.map(item => ({
+    id: item.id,
+    status: item.status,
+    floor: item.floor,
+    description: item.description || "",
+    // Garanta que existam valores padrão caso o banco venha vazio nessas colunas
+    top: item.top || 0, 
+    left: item.left || 0
+  }));
+  setPcs(pcsFormatados);
+}
   };
 
-  // Efeito para carregar o histórico e ativar o Tempo Real
   useEffect(() => {
-    buscarLogsDoBanco();
-
-    // Isso faz a tela atualizar sozinha se outra pessoa mexer!
+    buscarDadosIniciais();
     const canal = supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'logs_atividades' }, 
-        () => buscarLogsDoBanco()
-      )
+      .channel('db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'logs_atividades' }, () => {
+        buscarDadosIniciais();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'computadores' }, () => {
+        buscarDadosIniciais();
+      })
       .subscribe();
 
     return () => {
@@ -52,8 +65,7 @@ const Index = ({ usuario }: IndexProps) => {
     };
   }, []);
 
-  // Função para salvar uma nova ação no banco
-  const registrarAcaoNoBanco = async (acao: string, pcId: string = 'N/A') => {
+  const registrarAcaoNoBanco = async (acao: string, pcId: string) => {
     await supabase.from('logs_atividades').insert([
       { 
         operador: usuario || 'Sistema', 
@@ -61,9 +73,27 @@ const Index = ({ usuario }: IndexProps) => {
         computador: pcId 
       }
     ]);
-    // Não precisa dar setLogs aqui, o 'Realtime' acima vai detectar o insert e atualizar a lista!
   };
-  // ---------------------------
+
+  const handleSave = async (updated: PC) => {
+    const { error } = await supabase
+      .from('computadores')
+      .update({ 
+        status: updated.status, 
+        description: updated.description,
+        ultima_atualizacao: new Date().toISOString() 
+      })
+      .eq('id', updated.id);
+
+    if (error) {
+      toast.error("Erro ao salvar no banco");
+      return;
+    }
+
+    setSelectedPc(updated);
+    toast.success("Dados salvos com sucesso!");
+    await registrarAcaoNoBanco(`Alterou status para ${updated.status}`, String(updated.id));
+  };
 
   const switchFloor = (f: 1 | 2) => {
     if (f === floor) return;
@@ -75,27 +105,8 @@ const Index = ({ usuario }: IndexProps) => {
     }, 300);
   };
 
-  const handlePcClick = (pc: PC) => {
-    setSelectedPc(pc);
-  };
-
-  const handleSave = async (updated: PC) => {
-    setPcs((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-    setSelectedPc(updated);
-    
-    // Agora registra no BANCO DE DADOS
-    await registrarAcaoNoBanco(
-      `Alterou configurações`, 
-      `PC ${String(updated.id).padStart(2, "0")}`
-    );
-  };
-
   const searchResult = search.trim()
-    ? pcs.find(
-        (pc) =>
-          String(pc.id) === search.trim() ||
-          String(pc.id).padStart(2, "0") === search.trim()
-      )
+    ? pcs.find(pc => String(pc.id).toLowerCase().includes(search.toLowerCase().trim()))
     : null;
 
   const totalFloor1 = pcs.filter((p) => p.floor === 1).length;
@@ -103,23 +114,19 @@ const Index = ({ usuario }: IndexProps) => {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Top bar */}
       <header className="flex items-center justify-between px-6 py-3 glass-panel border-b border-border/30 z-40 relative shrink-0">
         <div className="flex items-center gap-3">
           <Monitor className="text-primary" size={24} />
           <div>
-            <h1 className="text-lg font-bold text-foreground tracking-tight leading-none">
-              ODONTO PC
-            </h1>
+            <h1 className="text-lg font-bold text-foreground tracking-tight leading-none">ODONTO PC</h1>
             <span className="text-[10px] text-primary">Operador: {usuario || 'Desconhecido'}</span>
           </div>
         </div>
 
-        {/* Search */}
         <div className="relative w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
           <Input
-            placeholder="numero do pc..."
+            placeholder="Ex: PC 01..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 bg-secondary/50 border-border/30 text-sm"
@@ -127,68 +134,42 @@ const Index = ({ usuario }: IndexProps) => {
           {searchResult && (
             <button
               onClick={() => {
-                setFloor(searchResult.floor);
+                setFloor(searchResult.floor as 1 | 2);
                 setSelectedPc(searchResult);
                 setSearch("");
               }}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-primary hover:underline"
             >
-              Ir para PC {String(searchResult.id).padStart(2, "0")}
+              Ir para {String(searchResult.id)}
             </button>
           )}
         </div>
 
-        {/* Floor switcher */}
         <div className="flex items-center gap-2">
-          <Button
-            variant={floor === 1 ? "default" : "secondary"}
-            size="sm"
-            onClick={() => switchFloor(1)}
-            className="gap-1.5 text-xs"
-          >
-            <Building2 size={14} />
-            Piso inferior
-            <span className="ml-1 text-[10px] opacity-70">({totalFloor1})</span>
+          <Button variant={floor === 1 ? "default" : "secondary"} size="sm" onClick={() => switchFloor(1)} className="gap-1.5 text-xs">
+            <Building2 size={14} /> Piso inferior <span className="ml-1 text-[10px] opacity-70">({totalFloor1})</span>
           </Button>
-          <Button
-            variant={floor === 2 ? "default" : "secondary"}
-            size="sm"
-            onClick={() => switchFloor(2)}
-            className="gap-1.5 text-xs"
-          >
-            <Building2 size={14} />
-            Piso superior
-            <span className="ml-1 text-[10px] opacity-70">({totalFloor2})</span>
+          <Button variant={floor === 2 ? "default" : "secondary"} size="sm" onClick={() => switchFloor(2)} className="gap-1.5 text-xs">
+            <Building2 size={14} /> Piso superior <span className="ml-1 text-[10px] opacity-70">({totalFloor2})</span>
           </Button>
         </div>
       </header>
 
-      {/* Map area */}
       <main className="flex-1 relative min-h-0 flex">
-        <div
-          className={`flex-1 relative ${transitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}
-          style={{ transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)" }}
-        >
-          <FloorMap
-            pcs={pcs}
-            floor={floor}
-            selectedPcId={selectedPc?.id ?? null}
-            onPcClick={handlePcClick}
-          />
+        <div className={`flex-1 relative ${transitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"}`} style={{ transition: "all 0.4s ease" }}>
+          <FloorMap pcs={pcs} floor={floor} selectedPcId={selectedPc?.id ?? null} onPcClick={setSelectedPc} />
         </div>
 
-        {/* HISTÓRICO VINDO DO SUPABASE */}
         <aside className="w-64 border-l border-border/20 bg-black/20 p-4 overflow-y-auto hidden lg:block">
           <div className="flex items-center gap-2 mb-4 text-muted-foreground border-b border-border/10 pb-2">
             <ClipboardList size={16} />
             <span className="text-xs font-semibold uppercase tracking-wider">Histórico Real</span>
           </div>
           <div className="space-y-3">
-            {logs.length === 0 && <p className="text-[10px] text-muted-foreground italic">Carregando...</p>}
             {logs.map((log) => (
               <div key={log.id} className="text-[10px] leading-tight bg-secondary/30 p-2 rounded border border-white/5">
                 <span className="text-primary block font-mono mb-1">
-                  {new Date(log.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(log.criado_em).toLocaleTimeString('pt-BR')}
                 </span>
                 <p className="text-gray-300 font-bold">{log.operador}</p>
                 <p className="text-gray-400">{log.acao} <span className="text-red-400">{log.computador !== 'N/A' ? log.computador : ''}</span></p>
@@ -197,23 +178,14 @@ const Index = ({ usuario }: IndexProps) => {
           </div>
         </aside>
 
-        {selectedPc && (
-          <div className="absolute inset-0 z-40 bg-black/10 backdrop-blur-[1px]" onClick={() => setSelectedPc(null)} />
-        )}
-
+        {selectedPc && <div className="absolute inset-0 z-40 bg-black/10 backdrop-blur-[1px]" onClick={() => setSelectedPc(null)} />}
         <PCDetailPanel pc={selectedPc} onClose={() => setSelectedPc(null)} onSave={handleSave} />
       </main>
 
       <footer className="flex items-center justify-center gap-6 py-2 text-[10px] text-muted-foreground border-t border-border/20 shrink-0">
-        <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-perf-high" /> Esse tá TOP
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-perf-mid" /> Meia boca
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-perf-low" /> Porqueira
-        </span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> TOP</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-yellow-500" /> Meia boca</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Porqueira</span>
       </footer>
     </div>
   );

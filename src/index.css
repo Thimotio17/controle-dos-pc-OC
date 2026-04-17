@@ -1,8 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -65,7 +64,7 @@
 }
 
 @layer utilities {
-  .pc-circle {
+  .pcs-circle {
     @apply rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 font-semibold text-sm;
     background: linear-gradient(135deg, hsl(var(--pc-gradient-start)), hsl(var(--pc-gradient-end)));
     box-shadow: 0 0 15px hsl(var(--pc-gradient-start) / 0.3);
