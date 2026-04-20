@@ -8,48 +8,69 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
+// 1. Defina as interfaces PRIMEIRO
+interface LogAtividade {
+  id: number;
+  operador: string;
+  acao: string;
+  computador: string;
+  criado_em: string;
+}
+
+// ESTA É A PARTE QUE ESTÁ FALTANDO NO SEU ARQUIVO:
 interface IndexProps {
   usuario?: string | null;
 }
 
 const Index = ({ usuario }: IndexProps) => {
-  // 1. ESTADOS ÚNICOS
   const [pcs, setPcs] = useState<PC[]>([]);
   const [floor, setFloor] = useState<1 | 2>(1);
   const [selectedPc, setSelectedPc] = useState<PC | null>(null);
   const [search, setSearch] = useState("");
   const [transitioning, setTransitioning] = useState(false);
-  const [logs, setLogs] = useState<any[]>([]);
+  // Corrigido aqui: removido o 'any' e adicionado a interface
+  const [logs, setLogs] = useState<LogAtividade[]>([]);
 
   const buscarDadosIniciais = async () => {
+    // 1. Busca Logs
     const { data: dataLogs } = await supabase
       .from('logs_atividades')
       .select('*')
       .order('criado_em', { ascending: false })
       .limit(15);
-    if (dataLogs) setLogs(dataLogs);
+    
+    if (dataLogs) setLogs(dataLogs as LogAtividade[]);
 
+    // 2. Busca Computadores
     const { data: dataPcs } = await supabase
       .from('computadores')
       .select('*')
       .order('id', { ascending: true });
     
     if (dataPcs) {
-  const pcsFormatados: PC[] = dataPcs.map(item => ({
-    id: item.id,
-    status: item.status,
-    floor: item.floor,
-    description: item.description || "",
-    // Garanta que existam valores padrão caso o banco venha vazio nessas colunas
-    top: item.top || 0, 
-    left: item.left || 0
-  }));
-  setPcs(pcsFormatados);
-}
+      const pcsFormatados: PC[] = dataPcs.map(item => ({
+        id: item.id,
+        status: item.status,
+        floor: Number(item.floor), 
+        description: item.description || "",
+        // Agora o item.top e item.left virão do banco
+        top: Number(item.top) || 0, 
+        left: Number(item.left) || 0,
+        cpu: item.cpu || "N/A",
+        ram: item.ram || 0,
+        motherboard: item.motherboard || "",
+        lastUpdated: item.ultima_atualizacao || "", // Nome exato no seu banco
+        updatedBy: item.updated_by || "",
+        department: item.department || ""
+      }));
+      
+      setPcs(pcsFormatados);
+    }
   };
 
   useEffect(() => {
     buscarDadosIniciais();
+    
     const canal = supabase
       .channel('db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'logs_atividades' }, () => {
@@ -81,18 +102,21 @@ const Index = ({ usuario }: IndexProps) => {
       .update({ 
         status: updated.status, 
         description: updated.description,
-        ultima_atualizacao: new Date().toISOString() 
+        last_updated: new Date().toISOString(),
+        updated_by: usuario || 'Sistema'
       })
       .eq('id', updated.id);
 
     if (error) {
+      console.error("Erro Supabase:", error);
       toast.error("Erro ao salvar no banco");
       return;
     }
 
-    setSelectedPc(updated);
-    toast.success("Dados salvos com sucesso!");
+    setSelectedPc(null);
+    toast.success(`PC ${updated.id} atualizado!`);
     await registrarAcaoNoBanco(`Alterou status para ${updated.status}`, String(updated.id));
+    buscarDadosIniciais();
   };
 
   const switchFloor = (f: 1 | 2) => {
@@ -157,7 +181,12 @@ const Index = ({ usuario }: IndexProps) => {
 
       <main className="flex-1 relative min-h-0 flex">
         <div className={`flex-1 relative ${transitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"}`} style={{ transition: "all 0.4s ease" }}>
-          <FloorMap pcs={pcs} floor={floor} selectedPcId={selectedPc?.id ?? null} onPcClick={setSelectedPc} />
+          <FloorMap 
+            pcs={pcs} 
+            floor={floor} 
+            selectedPcId={selectedPc?.id ?? null} 
+            onPcClick={(pc) => setSelectedPc(pc)} 
+          />
         </div>
 
         <aside className="w-64 border-l border-border/20 bg-black/20 p-4 overflow-y-auto hidden lg:block">
@@ -178,8 +207,18 @@ const Index = ({ usuario }: IndexProps) => {
           </div>
         </aside>
 
-        {selectedPc && <div className="absolute inset-0 z-40 bg-black/10 backdrop-blur-[1px]" onClick={() => setSelectedPc(null)} />}
-        <PCDetailPanel pc={selectedPc} onClose={() => setSelectedPc(null)} onSave={handleSave} />
+        {selectedPc && (
+          <div 
+            className="absolute inset-0 z-30 bg-black/40 backdrop-blur-[2px]" 
+            onClick={() => setSelectedPc(null)} 
+          />
+        )}
+        
+        <PCDetailPanel 
+          pc={selectedPc} 
+          onClose={() => setSelectedPc(null)} 
+          onSave={handleSave} 
+        />
       </main>
 
       <footer className="flex items-center justify-center gap-6 py-2 text-[10px] text-muted-foreground border-t border-border/20 shrink-0">
