@@ -10,12 +10,12 @@ interface PCCircleProps {
 const PCCircle = ({ pc, onClick, isSelected }: PCCircleProps) => {
   // Define a cor baseada no status
   const statusColors = {
-    TOP: "bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]",
-    "Meia boca": "bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.6)]",
+    TOP: "bg-teal-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]",
+    Meiaboca: "bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.6)]",
     Porqueira: "bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)]",
   };
 
-  const statusColor = statusColors[pc.status as keyof typeof statusColors] || "bg-gray-500";
+  const statusColor = statusColors[pc.status as keyof typeof statusColors] || "bg-blue-500";
 
   return (
     <button
