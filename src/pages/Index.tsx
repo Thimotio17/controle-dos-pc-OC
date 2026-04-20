@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-// 1. Defina as interfaces PRIMEIRO
 interface LogAtividade {
   id: number;
   operador: string;
@@ -17,7 +16,6 @@ interface LogAtividade {
   criado_em: string;
 }
 
-// ESTA É A PARTE QUE ESTÁ FALTANDO NO SEU ARQUIVO:
 interface IndexProps {
   usuario?: string | null;
 }
@@ -28,7 +26,6 @@ const Index = ({ usuario }: IndexProps) => {
   const [selectedPc, setSelectedPc] = useState<PC | null>(null);
   const [search, setSearch] = useState("");
   const [transitioning, setTransitioning] = useState(false);
-  // Corrigido aqui: removido o 'any' e adicionado a interface
   const [logs, setLogs] = useState<LogAtividade[]>([]);
 
   const buscarDadosIniciais = async () => {
@@ -48,28 +45,22 @@ const Index = ({ usuario }: IndexProps) => {
       .order('id', { ascending: true });
     
     if (dataPcs) {
-      // LOG DE DEPURAÇÃO: Verifique no console do navegador (F12) se o top/left aparecem aqui
-      console.log("Dados vindos do Supabase:", dataPcs);
-
       const pcsFormatados: PC[] = dataPcs.map(item => ({
         id: item.id,
         status: item.status,
-        floor: Number(item.floor), 
+        floor: Number(item.floor),
         description: item.description || "",
-        
-        // AJUSTE AQUI: Convertendo explicitamente para número os novos campos
-        top: item.top !== null ? Number(item.top) : 0, 
-        left: item.left !== null ? Number(item.left) : 0,
-        
+        top: Number(item.top) || 0,
+        left: Number(item.left) || 0,
         cpu: item.cpu || "N/A",
-        ram: item.ram || 0,
+        ram: Number(item.ram) || 0,
         motherboard: item.motherboard || "",
-        lastUpdated: item.ultima_atualizacao || "", // Nome da coluna no seu Supabase
-        updatedBy: item.updated_by || "",
+        // CORREÇÃO: Mapeando os nomes exatos do banco para o projeto
+        lastUpdated: item.ultima_atualizacao || "", 
+        updatedBy: item.updated_by || "Sistema", 
         department: item.department || ""
       }));
       
-      console.log("PCs Formatados para o Mapa:", pcsFormatados);
       setPcs(pcsFormatados);
     }
   };
@@ -102,36 +93,40 @@ const Index = ({ usuario }: IndexProps) => {
     ]);
   };
 
- const handleSave = async (updated: PC) => {
-  const dadosParaAtualizar = { 
-    status: updated.status, 
-    description: updated.description,
-    ultima_atualizacao: new Date().toISOString(),
-    // Agora o banco vai aceitar esta coluna:
-    updated_by: usuario || 'Sistema' 
+  const handleSave = async (updated: PC) => {
+    // CORREÇÃO: Enviando TODOS os campos para o banco não sobrescrever com vazio
+    const dadosParaAtualizar = { 
+      status: updated.status, 
+      description: updated.description,
+      cpu: updated.cpu,
+      ram: updated.ram,
+      motherboard: updated.motherboard,
+      department: updated.department,
+      ultima_atualizacao: new Date().toISOString(),
+      updated_by: usuario || 'Sistema' 
+    };
+
+    const { error } = await supabase
+      .from('computadores')
+      .update(dadosParaAtualizar)
+      .eq('id', updated.id);
+
+    if (error) {
+      console.error("Erro ao salvar:", error);
+      toast.error("Erro ao sincronizar com o banco de dados.");
+      return;
+    }
+
+    // Sucesso no salvamento
+    setSelectedPc(null);
+    toast.success(`PC ${updated.id} atualizado com sucesso!`);
+    
+    // Registra log e atualiza a interface imediatamente
+    await registrarAcaoNoBanco(`Alterou configurações do ${updated.id}`, String(updated.id));
+    await buscarDadosIniciais(); 
   };
 
-  const { error } = await supabase
-    .from('computadores')
-    .update(dadosParaAtualizar)
-    .eq('id', updated.id); 
-
-  if (error) {
-    console.error("Erro Supabase:", error);
-    toast.error(`Erro ao salvar: ${error.message}`);
-    return;
-  }
-
-  setSelectedPc(null);
-  toast.success(`PC ${updated.id} atualizado com sucesso!`);
-  
-  // Registra também na tabela de logs (histórico lateral)
-  await registrarAcaoNoBanco(`Alterou status para ${updated.status}`, String(updated.id));
-  
-  // Recarrega os dados para atualizar o mapa e a lista
-  buscarDadosIniciais();
-};
-
+  // ... (Restante do seu código de switchFloor, search e return permanece igual)
   const switchFloor = (f: 1 | 2) => {
     if (f === floor) return;
     setTransitioning(true);
