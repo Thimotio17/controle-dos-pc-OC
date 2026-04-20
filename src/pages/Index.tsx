@@ -102,28 +102,33 @@ const Index = ({ usuario }: IndexProps) => {
     ]);
   };
 
-  const handleSave = async (updated: PC) => {
+ const handleSave = async (updated: PC) => {
+  const dadosParaAtualizar = { 
+    status: updated.status, 
+    description: updated.description,
+    ultima_atualizacao: new Date().toISOString(),
+    // Agora o banco vai aceitar esta coluna:
+    updated_by: usuario || 'Sistema' 
+  };
+
   const { error } = await supabase
     .from('computadores')
-    .update({ 
-      status: updated.status, 
-      description: updated.description,
-      // Use os nomes EXATOS que estão no seu Supabase:
-      ultima_atualizacao: new Date().toISOString(), 
-      // Verifique se existe a coluna 'updated_by' no banco, se não existir, remova a linha abaixo
-      updated_by: usuario || 'Sistema' 
-    })
-    .eq('id', updated.id); // O ID deve ser uma string como "PC 01"
+    .update(dadosParaAtualizar)
+    .eq('id', updated.id); 
 
   if (error) {
-    console.error("Erro Supabase detalhado:", error);
-    toast.error(`Erro: ${error.message}`);
+    console.error("Erro Supabase:", error);
+    toast.error(`Erro ao salvar: ${error.message}`);
     return;
   }
 
   setSelectedPc(null);
-  toast.success(`PC ${updated.id} atualizado!`);
+  toast.success(`PC ${updated.id} atualizado com sucesso!`);
+  
+  // Registra também na tabela de logs (histórico lateral)
   await registrarAcaoNoBanco(`Alterou status para ${updated.status}`, String(updated.id));
+  
+  // Recarrega os dados para atualizar o mapa e a lista
   buscarDadosIniciais();
 };
 
