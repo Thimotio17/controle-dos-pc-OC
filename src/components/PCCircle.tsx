@@ -1,36 +1,45 @@
-import { PC, getPerformanceScore, getPerformanceLevel } from "@/data/pcData";
+import { PC } from "@/data/pcData";
+import { cn } from "@/lib/utils";
 
 interface PCCircleProps {
   pc: PC;
   onClick: (pc: PC) => void;
-  isSelected: boolean;
+  isSelected?: boolean;
 }
 
 const PCCircle = ({ pc, onClick, isSelected }: PCCircleProps) => {
-  const score = getPerformanceScore(pc);
-  const level = getPerformanceLevel(score);
+  // Define a cor baseada no status
+  const statusColors = {
+    TOP: "bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]",
+    "Meia boca": "bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.6)]",
+    Porqueira: "bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)]",
+  };
+
+  const statusColor = statusColors[pc.status as keyof typeof statusColors] || "bg-gray-500";
 
   return (
-    <div className="group relative">
-      <button
-        onClick={() => onClick(pc)}
-        className={`pc-circle performance-${level} w-8 h-8 text-[10px] font-bold ${
-          isSelected ? "ring-2 ring-primary scale-110" : ""
-        }`}
-        style={{ color: "hsl(var(--background))" }}
-      >
-        {String(pc.id).padStart(2, "0")}
-      </button>
-      {/* Tooltip */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg glass-panel text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-        <div className="font-semibold text-foreground">PC {String(pc.id).padStart(2, "0")}</div>
-        <div className="text-muted-foreground">{pc.cpu}</div>
-        <div className="text-muted-foreground">{pc.ram}GB RAM</div>
-        <div className={`font-medium ${level === "high" ? "text-perf-high" : level === "mid" ? "text-perf-mid" : "text-perf-low"}`}>
-          Score: {score}/10
+    <button
+      onClick={() => onClick(pc)}
+      className={cn(
+        "relative flex items-center justify-center transition-all duration-300 hover:scale-125 group",
+        // Tamanho do círculo
+        "w-8 h-8 rounded-full", 
+        statusColor,
+        isSelected && "ring-4 ring-white scale-110 z-50"
+      )}
+    >
+      {/* O número do computador dentro do círculo */}
+      <span className="text-[10px] font-bold text-white drop-shadow-md">
+        {String(pc.id).replace("PC ", "")}
+      </span>
+
+      {/* Tooltip (Legenda que aparece ao passar o mouse) */}
+      <div className="absolute bottom-full mb-2 hidden group-hover:block z-[100]">
+        <div className="bg-slate-900 text-white text-[10px] py-1 px-2 rounded shadow-xl border border-white/10 whitespace-nowrap">
+          {pc.id} - {pc.status}
         </div>
       </div>
-    </div>
+    </button>
   );
 };
 

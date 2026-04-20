@@ -48,22 +48,28 @@ const Index = ({ usuario }: IndexProps) => {
       .order('id', { ascending: true });
     
     if (dataPcs) {
+      // LOG DE DEPURAÇÃO: Verifique no console do navegador (F12) se o top/left aparecem aqui
+      console.log("Dados vindos do Supabase:", dataPcs);
+
       const pcsFormatados: PC[] = dataPcs.map(item => ({
         id: item.id,
         status: item.status,
         floor: Number(item.floor), 
         description: item.description || "",
-        // Agora o item.top e item.left virão do banco
-        top: Number(item.top) || 0, 
-        left: Number(item.left) || 0,
+        
+        // AJUSTE AQUI: Convertendo explicitamente para número os novos campos
+        top: item.top !== null ? Number(item.top) : 0, 
+        left: item.left !== null ? Number(item.left) : 0,
+        
         cpu: item.cpu || "N/A",
         ram: item.ram || 0,
         motherboard: item.motherboard || "",
-        lastUpdated: item.ultima_atualizacao || "", // Nome exato no seu banco
+        lastUpdated: item.ultima_atualizacao || "", // Nome da coluna no seu Supabase
         updatedBy: item.updated_by || "",
         department: item.department || ""
       }));
       
+      console.log("PCs Formatados para o Mapa:", pcsFormatados);
       setPcs(pcsFormatados);
     }
   };
@@ -97,27 +103,29 @@ const Index = ({ usuario }: IndexProps) => {
   };
 
   const handleSave = async (updated: PC) => {
-    const { error } = await supabase
-      .from('computadores')
-      .update({ 
-        status: updated.status, 
-        description: updated.description,
-        last_updated: new Date().toISOString(),
-        updated_by: usuario || 'Sistema'
-      })
-      .eq('id', updated.id);
+  const { error } = await supabase
+    .from('computadores')
+    .update({ 
+      status: updated.status, 
+      description: updated.description,
+      // Use os nomes EXATOS que estão no seu Supabase:
+      ultima_atualizacao: new Date().toISOString(), 
+      // Verifique se existe a coluna 'updated_by' no banco, se não existir, remova a linha abaixo
+      updated_by: usuario || 'Sistema' 
+    })
+    .eq('id', updated.id); // O ID deve ser uma string como "PC 01"
 
-    if (error) {
-      console.error("Erro Supabase:", error);
-      toast.error("Erro ao salvar no banco");
-      return;
-    }
+  if (error) {
+    console.error("Erro Supabase detalhado:", error);
+    toast.error(`Erro: ${error.message}`);
+    return;
+  }
 
-    setSelectedPc(null);
-    toast.success(`PC ${updated.id} atualizado!`);
-    await registrarAcaoNoBanco(`Alterou status para ${updated.status}`, String(updated.id));
-    buscarDadosIniciais();
-  };
+  setSelectedPc(null);
+  toast.success(`PC ${updated.id} atualizado!`);
+  await registrarAcaoNoBanco(`Alterou status para ${updated.status}`, String(updated.id));
+  buscarDadosIniciais();
+};
 
   const switchFloor = (f: 1 | 2) => {
     if (f === floor) return;
