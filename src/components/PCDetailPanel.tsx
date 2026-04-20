@@ -4,6 +4,7 @@ import { X, Save, Cpu, MemoryStick, CircuitBoard, User, Calendar, Gauge } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 interface PCDetailPanelProps {
   pc: PC | null;
@@ -23,8 +24,21 @@ const PCDetailPanel = ({ pc, onClose, onSave }: PCDetailPanelProps) => {
   const score = getPerformanceScore(editing);
   const level = getPerformanceLevel(score);
 
+  const circleColorClass = 
+    level === "high" ? "bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]" : 
+    level === "mid" ? "bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.5)]" : 
+    "bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]";
+
   const handleSave = () => {
-    onSave({ ...editing, lastUpdated: new Date().toISOString().split("T")[0] });
+    // CORREÇÃO DA HORA: Gera a data local formatada para evitar fuso horário UTC (T/Z)
+    const agora = new Date();
+    const dataFormatada = agora.toLocaleDateString('pt-BR') + ' ' + 
+                          agora.toLocaleTimeString('pt-BR', { hour12: false });
+
+    onSave({ 
+      ...editing, 
+      lastUpdated: dataFormatada 
+    });
   };
 
   const scoreColor = level === "high" ? "text-perf-high" : level === "mid" ? "text-perf-mid" : "text-perf-low";
@@ -35,12 +49,17 @@ const PCDetailPanel = ({ pc, onClose, onSave }: PCDetailPanelProps) => {
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-border/50">
         <div className="flex items-center gap-3">
-          <div className={`pc-circle performance-${level} w-12 h-12 text-sm font-bold`} style={{ color: "hsl(var(--background))" }}>
-            {String(pc.id).padStart(2, "0")}
+          <div className={cn(
+            "w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold text-white border border-white/20 transition-all duration-500",
+            circleColorClass
+          )}>
+            {String(pc.id).replace("PC ", "")}
           </div>
           <div>
-            <h2 className="text-lg font-bold text-foreground">PC {String(pc.id).padStart(2, "0")}</h2>
-            <p className="text-xs text-muted-foreground">{pc.department}</p>
+            <h2 className="text-lg font-bold text-foreground leading-none">
+              {pc.id}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">{pc.department || "Sem departamento"}</p>
           </div>
         </div>
         <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
@@ -89,14 +108,14 @@ const PCDetailPanel = ({ pc, onClose, onSave }: PCDetailPanelProps) => {
           <Label className="text-xs text-muted-foreground flex items-center gap-2">
             <User size={14} /> Atualizado por
           </Label>
-          <Input value={editing.updatedBy} onChange={(e) => setEditing({ ...editing, updatedBy: e.target.value })} className="bg-secondary/50 border-border/50" />
+          <Input disabled value={editing.updatedBy} className="bg-secondary/30 border-border/50 opacity-70 cursor-not-allowed" />
         </div>
 
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground flex items-center gap-2">
             <Calendar size={14} /> Última atualização
           </Label>
-          <div className="text-sm text-foreground bg-secondary/50 border border-border/50 rounded-md px-3 py-2">
+          <div className="text-[10px] font-mono text-muted-foreground bg-secondary/30 border border-border/30 rounded-md px-3 py-2 overflow-hidden text-ellipsis">
             {editing.lastUpdated}
           </div>
         </div>
