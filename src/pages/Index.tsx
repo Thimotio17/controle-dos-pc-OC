@@ -3,10 +3,11 @@ import { supabase } from "@/lib/supabase";
 import { PC } from "@/data/pcData";
 import FloorMap from "@/components/FloorMap";
 import PCDetailPanel from "@/components/PCDetailPanel";
-import { Search, Building2, Monitor, ClipboardList } from "lucide-react";
+import { Search, Building2, Monitor, ClipboardList, LogOut } from "lucide-react"; // Adicionado LogOut
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom"; // Importado para navegação
 
 interface LogAtividade {
   id: number;
@@ -27,9 +28,9 @@ const Index = ({ usuario }: IndexProps) => {
   const [search, setSearch] = useState("");
   const [transitioning, setTransitioning] = useState(false);
   const [logs, setLogs] = useState<LogAtividade[]>([]);
+  const navigate = useNavigate();
 
   const buscarDadosIniciais = async () => {
-    // 1. Busca Logs
     const { data: dataLogs } = await supabase
       .from('logs_atividades')
       .select('*')
@@ -38,7 +39,6 @@ const Index = ({ usuario }: IndexProps) => {
     
     if (dataLogs) setLogs(dataLogs as LogAtividade[]);
 
-    // 2. Busca Computadores
     const { data: dataPcs } = await supabase
       .from('computadores')
       .select('*')
@@ -55,7 +55,6 @@ const Index = ({ usuario }: IndexProps) => {
         cpu: item.cpu || "N/A",
         ram: Number(item.ram) || 0,
         motherboard: item.motherboard || "",
-        // CORREÇÃO: Mapeando os nomes exatos do banco para o projeto
         lastUpdated: item.ultima_atualizacao || "", 
         updatedBy: item.updated_by || "Sistema", 
         department: item.department || ""
@@ -83,6 +82,20 @@ const Index = ({ usuario }: IndexProps) => {
     };
   }, []);
 
+  const handleLogout = () => {
+  // 1. Limpa o localStorage (onde geralmente fica o nome do usuário)
+  localStorage.clear(); 
+  
+  // 2. Se você usa cookies ou session do Supabase, isso garante a limpeza
+  supabase.auth.signOut().then(() => {
+    // 3. Redireciona para a raiz (onde deve estar o Login)
+    navigate("/", { replace: true });
+    
+    // 4. Força o recarregamento total para resetar todos os "useEffect"
+    window.location.reload();
+  });
+};
+
   const registrarAcaoNoBanco = async (acao: string, pcId: string) => {
     await supabase.from('logs_atividades').insert([
       { 
@@ -94,7 +107,11 @@ const Index = ({ usuario }: IndexProps) => {
   };
 
   const handleSave = async (updated: PC) => {
-    // CORREÇÃO: Enviando TODOS os campos para o banco não sobrescrever com vazio
+    // CORREÇÃO FINAL DA HORA: Enviando como string formatada para o banco não alterar o fuso
+    const agora = new Date();
+    const dataTexto = agora.toLocaleDateString('pt-BR') + ' ' + 
+                      agora.toLocaleTimeString('pt-BR', { hour12: false });
+
     const dadosParaAtualizar = { 
       status: updated.status, 
       description: updated.description,
@@ -102,7 +119,7 @@ const Index = ({ usuario }: IndexProps) => {
       ram: updated.ram,
       motherboard: updated.motherboard,
       department: updated.department,
-      ultima_atualizacao: new Date().toISOString(),
+      ultima_atualizacao: dataTexto, // Salva o texto fixo
       updated_by: usuario || 'Sistema' 
     };
 
@@ -117,16 +134,13 @@ const Index = ({ usuario }: IndexProps) => {
       return;
     }
 
-    // Sucesso no salvamento
     setSelectedPc(null);
     toast.success(`PC ${updated.id} atualizado com sucesso!`);
     
-    // Registra log e atualiza a interface imediatamente
     await registrarAcaoNoBanco(`Alterou configurações do ${updated.id}`, String(updated.id));
     await buscarDadosIniciais(); 
   };
 
-  // ... (Restante do seu código de switchFloor, search e return permanece igual)
   const switchFloor = (f: 1 | 2) => {
     if (f === floor) return;
     setTransitioning(true);
@@ -151,7 +165,18 @@ const Index = ({ usuario }: IndexProps) => {
           <Monitor className="text-primary" size={24} />
           <div>
             <h1 className="text-lg font-bold text-foreground tracking-tight leading-none">ODONTO PC</h1>
-            <span className="text-[10px] text-primary">Operador: {usuario || 'Desconhecido'}</span>
+            <div className="flex flex-col items-start">
+              <span className="text-[10px] text-primary">Operador: {usuario || 'Desconhecido'}</span>
+              
+              {/* NOVO: Botão de Sair posicionado abaixo do nome */}
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-1 text-[9px] text-red-400/80 hover:text-red-500 transition-colors font-bold uppercase tracking-tighter mt-0.5"
+              >
+                <LogOut size={10} />
+                Sair do sistema
+              </button>
+            </div>
           </div>
         </div>
 

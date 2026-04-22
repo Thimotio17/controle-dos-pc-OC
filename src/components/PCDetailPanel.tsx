@@ -30,19 +30,33 @@ const PCDetailPanel = ({ pc, onClose, onSave }: PCDetailPanelProps) => {
     "bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]";
 
   const handleSave = () => {
-    // CORREÇÃO DA HORA: Gera a data local formatada para evitar fuso horário UTC (T/Z)
-    const agora = new Date();
-    const dataFormatada = agora.toLocaleDateString('pt-BR') + ' ' + 
-                          agora.toLocaleTimeString('pt-BR', { hour12: false });
-
+    // Envia o formato ISO padrão para o banco (o banco guarda o "momento" exato)
     onSave({ 
       ...editing, 
-      lastUpdated: dataFormatada 
+      lastUpdated: new Date().toISOString() 
     });
   };
 
   const scoreColor = level === "high" ? "text-perf-high" : level === "mid" ? "text-perf-mid" : "text-perf-low";
   const scoreBg = level === "high" ? "bg-perf-high/20" : level === "mid" ? "bg-perf-mid/20" : "bg-perf-low/20";
+
+  // Função para formatar a data que vem do banco para o horário local do seu PC
+  const formatarDataLocal = (dataString: string) => {
+    if (!dataString) return "Nenhuma atualização";
+    try {
+      const data = new Date(dataString);
+      return data.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (e) {
+      return dataString; // Se der erro, mostra o texto original
+    }
+  };
 
   return (
     <div className="fixed right-0 top-0 h-full w-96 glass-panel z-50 shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
@@ -115,8 +129,9 @@ const PCDetailPanel = ({ pc, onClose, onSave }: PCDetailPanelProps) => {
           <Label className="text-xs text-muted-foreground flex items-center gap-2">
             <Calendar size={14} /> Última atualização
           </Label>
-          <div className="text-[10px] font-mono text-muted-foreground bg-secondary/30 border border-border/30 rounded-md px-3 py-2 overflow-hidden text-ellipsis">
-            {editing.lastUpdated}
+          {/* CORREÇÃO: Aplicando a função que ajusta o fuso horário apenas na exibição */}
+          <div className="text-sm font-medium text-foreground bg-secondary/30 border border-border/30 rounded-md px-3 py-2">
+            {formatarDataLocal(editing.lastUpdated)}
           </div>
         </div>
       </div>
