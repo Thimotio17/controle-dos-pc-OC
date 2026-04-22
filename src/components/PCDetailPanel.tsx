@@ -42,21 +42,22 @@ const PCDetailPanel = ({ pc, onClose, onSave }: PCDetailPanelProps) => {
 
   // Função para formatar a data que vem do banco para o horário local do seu PC
   const formatarDataLocal = (dataString: string) => {
-    if (!dataString) return "Nenhuma atualização";
-    try {
-      const data = new Date(dataString);
-      return data.toLocaleString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-    } catch (e) {
-      return dataString; // Se der erro, mostra o texto original
-    }
-  };
+  if (!dataString) return "Nenhuma atualização";
+  try {
+    const data = new Date(dataString);
+    // Isso converte o horário do banco para o seu horário local automaticamente
+    return data.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  } catch (e) {
+    return dataString;
+  }
+};
 
   return (
     <div className="fixed right-0 top-0 h-full w-96 glass-panel z-50 shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
@@ -131,8 +132,8 @@ const PCDetailPanel = ({ pc, onClose, onSave }: PCDetailPanelProps) => {
           </Label>
           {/* CORREÇÃO: Aplicando a função que ajusta o fuso horário apenas na exibição */}
           <div className="text-sm font-medium text-foreground bg-secondary/30 border border-border/30 rounded-md px-3 py-2">
-            {formatarDataLocal(editing.lastUpdated)}
-          </div>
+  {formatarDataLocal(editing.lastUpdated)}
+</div>
         </div>
       </div>
 
