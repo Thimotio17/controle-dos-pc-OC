@@ -28,7 +28,7 @@ const Index = ({ usuario }: IndexProps) => {
   const [search, setSearch] = useState("");
   const [transitioning, setTransitioning] = useState(false);
   const [logs, setLogs] = useState<LogAtividade[]>([]);
-  const [isAdding, setIsAdding] = useState(false); // ESTADO PARA MODO ADIÇÃO
+  const [isAdding, setIsAdding] = useState(false);
   const navigate = useNavigate();
 
   const buscarDadosIniciais = async () => {
@@ -74,7 +74,13 @@ const Index = ({ usuario }: IndexProps) => {
     window.location.reload();
   };
 
-  // FUNÇÃO PARA CAPTURAR O CLIQUE NO MAPA E CRIAR NOVO PC
+  // Atualiza a posição no estado local enquanto arrasta
+  const handleUpdatePosition = (id: string | number, top: number, left: number) => {
+    setPcs(prevPcs => prevPcs.map(pc => 
+      pc.id === id ? { ...pc, top, left } : pc
+    ));
+  };
+
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isAdding) return;
 
@@ -83,7 +89,7 @@ const Index = ({ usuario }: IndexProps) => {
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
     const novoPC: PC = {
-      id: `PC ${pcs.length + 1}`, // Sugestão de ID
+      id: `PC ${pcs.length + 1}`,
       status: "online",
       floor: floor,
       top: Number(y.toFixed(2)),
@@ -102,35 +108,35 @@ const Index = ({ usuario }: IndexProps) => {
   };
 
   const handleSave = async (updated: PC) => {
-  // Agora enviamos o formato ISO padrão que o banco de dados exige
-  const dataParaBanco = { 
-    id: updated.id,
-    status: updated.status || 'online', 
-    cpu: updated.cpu || 'N/A',
-    ram: Number(updated.ram) || 0,
-    motherboard: updated.motherboard || 'N/A',
-    department: updated.department || '',
-    floor: Number(updated.floor),
-    top: Number(updated.top),
-    left: Number(updated.left),
-    ultima_atualizacao: new Date().toISOString(), // FORMATO CORRETO PARA O BANCO
-    updated_by: usuario || 'Sistema' 
+    const dataParaBanco = { 
+      id: updated.id,
+      status: updated.status || 'online', 
+      cpu: updated.cpu || 'N/A',
+      ram: Number(updated.ram) || 0,
+      motherboard: updated.motherboard || 'N/A',
+      department: updated.department || '',
+      floor: Number(updated.floor),
+      top: Number(updated.top),
+      left: Number(updated.left),
+      ultima_atualizacao: new Date().toISOString(),
+      updated_by: usuario || 'Sistema' 
+    };
+
+    const { error } = await supabase
+      .from('computadores')
+      .upsert(dataParaBanco, { onConflict: 'id' });
+
+    if (error) {
+      console.error("ERRO COMPLETO:", error);
+      toast.error(`Erro no banco: ${error.message}`);
+      return;
+    }
+
+    setSelectedPc(null);
+    toast.success(`${updated.id} salvo com sucesso!`);
+    buscarDadosIniciais();
   };
 
-  const { error } = await supabase
-    .from('computadores')
-    .upsert(dataParaBanco, { onConflict: 'id' });
-
-  if (error) {
-    console.error("ERRO COMPLETO:", error);
-    toast.error(`Erro no banco: ${error.message}`);
-    return;
-  }
-
-  setSelectedPc(null);
-  toast.success(`${updated.id} salvo com sucesso!`);
-  buscarDadosIniciais();
-};
   const switchFloor = (f: 1 | 2) => {
     if (f === floor) return;
     setTransitioning(true);
@@ -157,7 +163,6 @@ const Index = ({ usuario }: IndexProps) => {
           </div>
         </div>
 
-        {/* BOTÃO DE ADICIONAR PC */}
         <div className="flex items-center gap-4">
            <Button 
             variant={isAdding ? "destructive" : "outline"} 
@@ -166,7 +171,7 @@ const Index = ({ usuario }: IndexProps) => {
             className="gap-2 border-primary/50 text-primary hover:bg-primary/10 animate-pulse"
           >
             {isAdding ? <Crosshair size={14} /> : <PlusCircle size={14} />}
-            {isAdding ? "Clique no local do mapa..." : "Adicionar PC"}
+            {isAdding ? "Clique ou Arraste no mapa..." : "Adicionar/Mover PC"}
           </Button>
 
           <div className="relative w-64">
@@ -191,7 +196,6 @@ const Index = ({ usuario }: IndexProps) => {
       </header>
 
       <main className="flex-1 relative flex overflow-hidden">
-        {/* CONTAINER DO MAPA COM EVENTO DE CLIQUE */}
         <div 
           className={`flex-1 relative transition-all duration-300 ${transitioning ? "opacity-0" : "opacity-100"} ${isAdding ? "cursor-crosshair" : ""}`}
           onClick={handleMapClick}
@@ -200,13 +204,15 @@ const Index = ({ usuario }: IndexProps) => {
             pcs={pcs} 
             floor={floor} 
             selectedPcId={selectedPc?.id ?? null} 
-            onPcClick={(pc) => !isAdding && setSelectedPc(pc)} 
+            onPcClick={(pc) => !isAdding && setSelectedPc(pc)}
+            isAdding={isAdding}
+            onUpdatePosition={handleUpdatePosition}
           />
           
           {isAdding && (
             <div className="absolute inset-0 bg-primary/5 pointer-events-none flex items-center justify-center">
-              <div className="bg-background/80 px-4 py-2 rounded-full border border-primary text-primary text-xs font-bold animate-bounce">
-                MODO DE ADIÇÃO ATIVO: CLIQUE NA MESA
+              <div className="bg-background/80 px-4 py-2 rounded-full border border-primary text-primary text-xs font-bold animate-bounce shadow-xl">
+                MODO DE EDIÇÃO: ARRASTE OS ÍCONES OU CLIQUE NO MAPA
               </div>
             </div>
           )}
