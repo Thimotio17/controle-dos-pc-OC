@@ -15,7 +15,7 @@ const PCCircle = ({ pc, onClick, isSelected }: PCCircleProps) => {
   Porqueira: "bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)]",
 };
 
-  const statusColor = statusColors[pc.status as keyof typeof statusColors] || "bg-gray-500";
+  const statusColor = statusColors[pc.status as keyof typeof statusColors] || "bg-teal-600";  // cor do circulo
 
   return (
     <button
@@ -24,7 +24,8 @@ const PCCircle = ({ pc, onClick, isSelected }: PCCircleProps) => {
         
         "relative flex items-center justify-center transition-all duration-300 hover:scale-125 group",
         
-        "w-8 h-8 rounded-full border border-white/20", 
+        "w-7 h-7 rounded-full border border-white/20",  // mudar o tamanho do círculo aqui
+
         statusColor,
         
         isSelected && "ring-4 ring-white scale-110 z-50"

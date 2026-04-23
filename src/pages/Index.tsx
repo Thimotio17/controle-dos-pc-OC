@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { PC } from "@/data/pcData";
 import FloorMap from "@/components/FloorMap";
 import PCDetailPanel from "@/components/PCDetailPanel";
-import { Search, Building2, Monitor, ClipboardList, LogOut, PlusCircle, Crosshair } from "lucide-react";
+import { Search, Monitor, ClipboardList, LogOut, PlusCircle, Crosshair } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -74,7 +74,7 @@ const Index = ({ usuario }: IndexProps) => {
     window.location.reload();
   };
 
-  // Atualiza a posição no estado local enquanto arrasta
+  // Atualiza a posição no estado local apenas visualmente (durante o arraste)
   const handleUpdatePosition = (id: string | number, top: number, left: number) => {
     setPcs(prevPcs => prevPcs.map(pc => 
       pc.id === id ? { ...pc, top, left } : pc
@@ -107,6 +107,7 @@ const Index = ({ usuario }: IndexProps) => {
     toast.info("Defina as configurações do novo PC e salve.");
   };
 
+  // Esta função agora é usada tanto para o Botão Salvar quanto para o fim do arraste (DragEnd)
   const handleSave = async (updated: PC) => {
     const dataParaBanco = { 
       id: updated.id,
@@ -132,8 +133,8 @@ const Index = ({ usuario }: IndexProps) => {
       return;
     }
 
-    setSelectedPc(null);
-    toast.success(`${updated.id} salvo com sucesso!`);
+    // Se salvou com sucesso, recarrega os dados para atualizar o histórico/mapa
+    toast.success(`${updated.id} atualizado com sucesso!`);
     buscarDadosIniciais();
   };
 
@@ -167,11 +168,14 @@ const Index = ({ usuario }: IndexProps) => {
            <Button 
             variant={isAdding ? "destructive" : "outline"} 
             size="sm" 
-            onClick={() => setIsAdding(!isAdding)}
+            onClick={() => {
+              setIsAdding(!isAdding);
+              setSelectedPc(null); // Fecha o painel ao entrar no modo edição
+            }}
             className="gap-2 border-primary/50 text-primary hover:bg-primary/10 animate-pulse"
           >
             {isAdding ? <Crosshair size={14} /> : <PlusCircle size={14} />}
-            {isAdding ? "Clique ou Arraste no mapa..." : "Adicionar/Mover PC"}
+            {isAdding ? "Finalizar Edição" : "Adicionar/Mover PC"}
           </Button>
 
           <div className="relative w-64">
@@ -207,6 +211,7 @@ const Index = ({ usuario }: IndexProps) => {
             onPcClick={(pc) => !isAdding && setSelectedPc(pc)}
             isAdding={isAdding}
             onUpdatePosition={handleUpdatePosition}
+            onDragEnd={handleSave} // <--- PERSISTÊNCIA NO BANCO AO SOLTAR O MOUSE
           />
           
           {isAdding && (
